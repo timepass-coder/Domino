@@ -512,14 +512,275 @@ static Ball Sleep(Ball b)
         true);
 }
 
+        /// <summary>
+        /// Domino strikes domino. Pairs are visited in index order and each impulse
+        /// is applied before the next pair is tested, so a chain resolves the same
+        /// way every run. Never iterate this by distance or by which contact looks
+        /// most urgent - that is how a chain stops being reproducible.
+        /// </summary>
         static void ResolveDominoContacts(Domino[] dominoes)
         {
+            for (int i = 0; i < dominoes.Length; i++)
+            {
+                int dir = FallDirection(dominoes[i]);
+                if (dir == 0)
+                    continue;
+
+                // Upright: nothing reaches.
+                for (int j = 0; j < dominoes.Length; j++)
+                {
+                    if (j == i)
+                        continue;
+
+                    if (!InContact(dominoes[i], dominoes[j], dir))
+                        continue;
+
+                    TransferImpulse(dominoes, i, j, dir);
+                }
+            }
         }
 
-        static void ResolveBallDominoContacts(
-            Ball[] balls,
-            Domino[] dominoes)
+        /// <summary>
+        /// Has i's leading corner reached j's back face, at a height j can actually
+        /// be hit at?
+        /// </summary>
+        static bool InContact(Domino faller, Domino struck, int dir)
         {
+            // Phase 0 keeps chains on one level. Dominoes on different shelves are
+            // not each other's problem, and pretending otherwise would let a domino
+            // topple something a metre below it.
+            if (faller.Base.Y.Raw != struck.Base.Y.Raw)
+                return false;
+
+            // Only what lies ahead. Without this a domino falling right would also
+            // report contact with the neighbour behind it.
+            bool ahead = dir > 0
+                ? struck.Base.X.Raw > faller.Base.X.Raw
+                : struck.Base.X.Raw < faller.Base.X.Raw;
+
+            if (!ahead)
+                return false;
+
+            // Corner above the struck domino's top: it swings over, not into it.
+            Fix arm = faller.Arm;
+            if (arm.Raw > struck.Height.Raw)
+                return false;
+
+            Fix corner = faller.LeadingCornerX(dir);
+            Fix face = struck.StruckFaceX(dir);
+
+            return dir > 0
+                ? corner.Raw >= face.Raw
+                : corner.Raw <= face.Raw;
+        }
+
+        /// <summary>
+        /// Fully inelastic angular impulse about the two pivots. Step 7 is
+        /// impulse-only on purpose: it under-delivers compared with a real domino,
+        /// which lands on its neighbour and keeps pushing. Step 10 measures how much
+        /// that costs before anyone decides to add sustained contact.
+        /// </summary>
+        /// <para>
+        /// e is fixed at 0. Raising it above 1 to make chains work would be energy
+        /// from nowhere, and Phase 2's energy thresholds would inherit the lie.
+        /// </para>
+        static void TransferImpulse(Domino[] dominoes, int i, int j, int dir)
+        {
+            Domino faller = dominoes[i];
+            Domino struck = dominoes[j];
+
+            Fix arm = faller.Arm;
+            if (arm.Raw == 0)
+                return; // Flat on its face: no lever left.
+
+            // Work in the fall direction so both rates are positive when closing.
+            Fix omegaFaller = dir > 0
+                ? faller.Omega
+                : -faller.Omega;
+
+            Fix omegaStruck = dir > 0
+                ? struck.Omega
+                : -struck.Omega;
+
+            Fix closing = omegaFaller - omegaStruck;
+            if (closing.Raw <= 0)
+                return; // Separating, or already matched.
+
+            Fix inertiaFaller = faller.Inertia;
+            Fix inertiaStruck = struck.Inertia;
+
+            // J = v_rel / (arm^2 * (1/I_f + 1/I_s)), with e = 0.
+            Fix vrel = arm * closing;
+
+            Fix invSum =
+                Fix.Div(Fix.One, inertiaFaller) +
+                Fix.Div(Fix.One, inertiaStruck);
+
+            Fix impulse = Fix.Div(
+                vrel,
+                arm * arm * invSum);
+
+            Fix deltaStruck = Fix.Div(
+                impulse * arm,
+                inertiaStruck);
+
+            Fix deltaFaller = Fix.Div(
+                impulse * arm,
+                inertiaFaller);
+
+            Fix newStruck = dir > 0
+                ? struck.Omega + deltaStruck
+                : struck.Omega - deltaStruck;
+
+            Fix newFaller = dir > 0
+                ? faller.Omega - deltaFaller
+                : faller.Omega + deltaFaller;
+
+            dominoes[j] = struck.WithMotion(
+                struck.Theta,
+                newStruck,
+                ClassifyLean(struck.Theta, struck.State));
+
+            dominoes[i] = faller.WithMotion(
+                faller.Theta,
+                newFaller,
+                ClassifyLean(faller.Theta, faller.State));
+        }
+
+        /// <summary>
+        /// Ball strikes domino. Balls in index order, dominoes in index order inside that,
+        /// each impulse applied before the next pair is tested - same rule as the
+        /// domino-domino pass, for the same reason.
+        /// </summary>
+        static void ResolveBallDominoContacts(Ball[] balls, Domino[] dominoes)
+        {
+            for (int i = 0; i < balls.Length; i++)
+            {
+                if (balls[i].Asleep)
+                    continue;
+
+                int dir = Sign(balls[i].Vel.X);
+
+                // Not travelling: nothing to give.
+                if (dir == 0)
+                    continue;
+
+                for (int j = 0; j < dominoes.Length; j++)
+                {
+                    if (!BallReaches(balls[i], dominoes[j], dir))
+                        continue;
+
+                    TransferBallImpulse(balls, dominoes, i, j, dir);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Is the ball's leading edge in the domino's near face, at a height on the
+        /// face rather than over the top of it?
+        /// </summary>
+        static bool BallReaches(Ball b, Domino d, int dir)
+        {
+            // A fallen domino is scenery. It has no lever left and nothing to give.
+            if (d.State == DominoState.Fallen)
+                return false;
+
+            // Contact height above the domino's base, which is also the moment arm -
+            // the same coincidence that makes the domino-domino case cheap, except
+            // here the height comes from the ball's centre instead of h*cos(theta).
+            Fix arm = b.Pos.Y - d.Base.Y;
+
+            if (arm.Raw <= 0 || arm.Raw > d.Height.Raw)
+                return false;
+
+            // The face on the side the ball is arriving from, taken at the base.
+            Fix face = d.StruckFaceX(dir);
+
+            Fix edge = dir > 0
+                ? b.Pos.X + b.Radius
+                : b.Pos.X - b.Radius;
+
+            // Reached the near face, and the centre has not yet crossed the far one.
+            // The second half matters: without it a ball that got through keeps being
+            // grabbed from behind and hauled backwards.
+            Fix back = dir > 0
+                ? face + d.Thickness
+                : face - d.Thickness;
+
+            return dir > 0
+                ? edge.Raw >= face.Raw && b.Pos.X.Raw <= back.Raw
+                : edge.Raw <= face.Raw && b.Pos.X.Raw >= back.Raw;
+        }
+
+        /// <summary>
+        /// Fully inelastic horizontal impulse: the ball's linear inertia against the
+        /// domino's angular inertia reduced to the contact point, arm^2.
+        ///
+        /// Impulse-only and e = 0, the same two choices as TransferImpulse. There is
+        /// no position correction: a ball that fails to topple a domino keeps creeping
+        /// into it rather than being stopped dead by it. Step 10 decides whether that
+        /// needs sustained contact, and it is the same decision for both passes.
+        /// </summary>
+        static void TransferBallImpulse(
+            Ball[] balls,
+            Domino[] dominoes,
+            int i,
+            int j,
+            int dir)
+        {
+            Ball b = balls[i];
+            Domino d = dominoes[j];
+
+            Fix arm = b.Pos.Y - d.Base.Y;
+
+            // Work in the direction of travel so both speeds are positive when closing.
+            Fix ballSpeed = dir > 0
+                ? b.Vel.X
+                : -b.Vel.X;
+
+            Fix faceSpeed = arm * (dir > 0
+                ? d.Omega
+                : -d.Omega);
+
+            Fix closing = ballSpeed - faceSpeed;
+
+            // The face is outrunning the ball.
+            if (closing.Raw <= 0)
+                return;
+
+            Fix inertia = d.Inertia;
+
+            Fix invSum =
+                Fix.Div(Fix.One, b.Mass) +
+                Fix.Div(arm * arm, inertia);
+
+            Fix impulse = Fix.Div(closing, invSum);
+
+            Fix deltaOmega =
+                Fix.Div(impulse * arm, inertia);
+
+            Fix deltaBall =
+                Fix.Div(impulse, b.Mass);
+
+            Fix newOmega = dir > 0
+                ? d.Omega + deltaOmega
+                : d.Omega - deltaOmega;
+
+            Fix newVx = dir > 0
+                ? b.Vel.X - deltaBall
+                : b.Vel.X + deltaBall;
+
+            dominoes[j] = d.WithMotion(
+                d.Theta,
+                newOmega,
+                ClassifyLean(d.Theta, d.State));
+
+            // WithMotion, not WithContact: a rolling ball is still on its surface
+            // after hitting a domino. Awake, though - it has just been given work.
+            balls[i] = b.WithMotion(
+                b.Pos,
+                new Vec2(newVx, b.Vel.Y),
+                false);
         }
     }
 }

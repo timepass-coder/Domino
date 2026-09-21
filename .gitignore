@@ -1,3 +1,8 @@
-
+sim/Relay.Sim/bin/
+sim/Relay.Sim/obj/
+sim/Relay.Sim.tests/bin/
+sim/Relay.Sim.tests/obj/
+sim/Relay.Sim.Harness/bin/
+sim/Relay.Sim.Harness/obj/
 
 

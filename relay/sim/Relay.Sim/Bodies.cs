@@ -179,6 +179,63 @@ namespace Relay.Sim
                 Thickness,
                 Mass,
                 state);
+        // Geometry. Derived every time rather than stored: a cached corner position
+        // is one more thing that can disagree with Theta.
+        public Fix HalfThickness => Fix.Div(Thickness, Fix.Two);
+
+        /// <summary>
+        /// How far past upright it leans, ignoring which way.
+        /// </summary>
+        public Fix Lean => Fix.Abs(Theta);
+
+        /// <summary>
+        /// Inertia about the base edge, per unit mass: (h^2 + t^2) / 3.
+        /// Taken from the domino's own dimensions, not SimConstants, so Phase 3's
+        /// tall piece work can happen without touching this code.
+        /// </summary>
+        public Fix InertiaPerMass =>
+            Fix.Div(
+                Height * Height + Thickness * Thickness,
+                Fix.FromInt(3));
+
+        public Fix Inertia => Mass * InertiaPerMass;
+
+        /// <summary>
+        /// The base corner it turns about, on the side it is falling towards.
+        /// dir is +1 for a fall to the right, -1 to the left.
+        /// </summary>
+        public Fix PivotX(int dir) =>
+            dir > 0
+                ? Base.X + HalfThickness
+                : Base.X - HalfThickness;
+
+        /// <summary>
+        /// Where the leading top corner has swung to.
+        /// From the pivot it starts at (0, h) and rotates to
+        /// (h sin(theta), h cos(theta)).
+        /// </summary>
+        public Fix LeadingCornerX(int dir) =>
+            dir > 0
+                ? PivotX(dir) + Height * Fix.Sin(Lean)
+                : PivotX(dir) - Height * Fix.Sin(Lean);
+
+        /// <summary>
+        /// h cos(theta). This is both the height of the contact point above
+        /// the ground and the moment arm about the pivot - the same quantity,
+        /// which is why the impulse below only needs one of them.
+        /// </summary>
+        public Fix Arm => Height * Fix.Cos(Lean);
+
+        /// <summary>
+        /// The face an approaching neighbour hits, where dir is the direction
+        /// that neighbour is travelling. Taken at the base: Phase 0 transfers
+        /// the impulse before the struck domino has leaned far enough for this
+        /// to matter.
+        /// </summary>
+        public Fix StruckFaceX(int dir) =>
+            dir > 0
+                ? Base.X - HalfThickness
+                : Base.X + HalfThickness;
 
         public void WriteTo(BinaryWriter w)
         {
