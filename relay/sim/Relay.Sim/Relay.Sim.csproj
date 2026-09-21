@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+<!--
+    The deterministic simulation core.
+ 
+    HARD RULES, enforced by SimPurityTests (step 3):
+      * No reference to UnityEngine or any engine assembly. Ever.
+      * No float, double, or decimal anywhere in this project.
+      * No System.Random, DateTime, or Environment.TickCount.
+      * No mutable static state.
+  -->
+
+ <ItemGroup>
+   <ProjectReference Include="..\Relay.FixedMath\Relay.FixedMath.csproj" />
+ </ItemGroup>
+
+ <PropertyGroup>
+ <TargetFramework>netstandard2.1</TargetFramework>
+ <LangVersion>10</LangVersion>
+ <Nullable>enable</Nullable>
+ <ImplicitUsings>disable</ImplicitUsings>
+ <AssemblyName>Relay.Sim</AssemblyName>
+ <RootNamespace>Relay.Sim</RootNamespace>
+ <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+ <DebugType>portable</DebugType>
+ </PropertyGroup>
+
+</Project>

@@ -1,0 +1,21 @@
+dotnet new sln -n Relay  
+dotnet sln list
+dotnet new classlib -n Relay.Sim -o sim\Relay.Sim -f netstandard2.1
+dotnet new xunit -n Relay.Sim.Tests -o sim\Relay.Sim.Tests -f net10.0
+dotnet new console -n Relay.Sim.Harness -o sim\Relay.Sim.Harness -f net10.0
+
+
+
+###### Add the 3 projects to solutions ##########################
+dotnet sln add sim\Relay.Sim\Relay.Sim.csproj
+dotnet sln add sim\Relay.Sim.Tests\Relay.Sim.Tests.csproj
+dotnet sln add sim\Relay.Sim.Harness\Relay.Sim.Harness.csproj
+
+## lets the other 2 projects use the sim
+dotnet list sim\Relay.Sim.Tests\Relay.Sim.Tests.csproj reference
+dotnet list sim\Relay.Sim.Harness\Relay.Sim.Harness.csproj reference
+
+## verify
+dotnet sln list
+dotnet build
+dotnet test

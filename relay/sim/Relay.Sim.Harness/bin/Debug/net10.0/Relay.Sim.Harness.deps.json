@@ -1,0 +1,55 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "Relay.Sim.Harness/1.0.0": {
+        "dependencies": {
+          "Relay.Sim": "1.0.0"
+        },
+        "runtime": {
+          "Relay.Sim.Harness.dll": {}
+        }
+      },
+      "Relay.FixedMath/1.0.0": {
+        "runtime": {
+          "Relay.FixedMath.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "Relay.Sim/1.0.0": {
+        "dependencies": {
+          "Relay.FixedMath": "1.0.0"
+        },
+        "runtime": {
+          "Relay.Sim.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Relay.Sim.Harness/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Relay.FixedMath/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Relay.Sim/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

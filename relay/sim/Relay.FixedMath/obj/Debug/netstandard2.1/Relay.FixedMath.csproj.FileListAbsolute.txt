@@ -1,0 +1,9 @@
+D:\Unity\projects\Domino\relay\sim\Relay.FixedMath\bin\Debug\netstandard2.1\Relay.FixedMath.deps.json
+D:\Unity\projects\Domino\relay\sim\Relay.FixedMath\bin\Debug\netstandard2.1\Relay.FixedMath.dll
+D:\Unity\projects\Domino\relay\sim\Relay.FixedMath\bin\Debug\netstandard2.1\Relay.FixedMath.pdb
+D:\Unity\projects\Domino\relay\sim\Relay.FixedMath\obj\Debug\netstandard2.1\Relay.FixedMath.GeneratedMSBuildEditorConfig.editorconfig
+D:\Unity\projects\Domino\relay\sim\Relay.FixedMath\obj\Debug\netstandard2.1\Relay.FixedMath.AssemblyInfoInputs.cache
+D:\Unity\projects\Domino\relay\sim\Relay.FixedMath\obj\Debug\netstandard2.1\Relay.FixedMath.AssemblyInfo.cs
+D:\Unity\projects\Domino\relay\sim\Relay.FixedMath\obj\Debug\netstandard2.1\Relay.FixedMath.csproj.CoreCompileInputs.cache
+D:\Unity\projects\Domino\relay\sim\Relay.FixedMath\obj\Debug\netstandard2.1\Relay.FixedMath.dll
+D:\Unity\projects\Domino\relay\sim\Relay.FixedMath\obj\Debug\netstandard2.1\Relay.FixedMath.pdb

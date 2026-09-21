@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    VENDORED THIRD-PARTY CODE - do not edit the files under FixPointCS/.
+    Source: https://github.com/XMunkki/FixPointCS (MIT)
+    Deliberately relaxed lint settings so the library compiles unmodified.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>10</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>Relay.FixedMath</AssemblyName>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>CS0162;CS0164;CS0219;CS1591;CS0649</NoWarn>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+</Project>

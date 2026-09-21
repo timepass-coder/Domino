@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/sim/">
+    <Project Path="sim/Relay.FixedMath/Relay.FixedMath.csproj" />
+    <Project Path="sim/Relay.Sim.Harness/Relay.Sim.Harness.csproj" />
+    <Project Path="sim/Relay.Sim.Tests/Relay.Sim.Tests.csproj" />
+    <Project Path="sim/Relay.Sim/Relay.Sim.csproj" />
+  </Folder>
+</Solution>

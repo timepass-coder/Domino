@@ -1,0 +1,13 @@
+D:\Unity\projects\Domino\relay\sim\Relay.Sim\bin\Debug\netstandard2.1\Relay.Sim.deps.json
+D:\Unity\projects\Domino\relay\sim\Relay.Sim\bin\Debug\netstandard2.1\Relay.Sim.dll
+D:\Unity\projects\Domino\relay\sim\Relay.Sim\bin\Debug\netstandard2.1\Relay.Sim.pdb
+D:\Unity\projects\Domino\relay\sim\Relay.Sim\obj\Debug\netstandard2.1\Relay.Sim.GeneratedMSBuildEditorConfig.editorconfig
+D:\Unity\projects\Domino\relay\sim\Relay.Sim\obj\Debug\netstandard2.1\Relay.Sim.AssemblyInfoInputs.cache
+D:\Unity\projects\Domino\relay\sim\Relay.Sim\obj\Debug\netstandard2.1\Relay.Sim.AssemblyInfo.cs
+D:\Unity\projects\Domino\relay\sim\Relay.Sim\obj\Debug\netstandard2.1\Relay.Sim.csproj.CoreCompileInputs.cache
+D:\Unity\projects\Domino\relay\sim\Relay.Sim\obj\Debug\netstandard2.1\Relay.Sim.dll
+D:\Unity\projects\Domino\relay\sim\Relay.Sim\obj\Debug\netstandard2.1\Relay.Sim.pdb
+D:\Unity\projects\Domino\relay\sim\Relay.Sim\bin\Debug\netstandard2.1\Relay.FixedMath.dll
+D:\Unity\projects\Domino\relay\sim\Relay.Sim\bin\Debug\netstandard2.1\Relay.FixedMath.pdb
+D:\Unity\projects\Domino\relay\sim\Relay.Sim\obj\Debug\netstandard2.1\Relay.Sim.csproj.AssemblyReference.cache
+D:\Unity\projects\Domino\relay\sim\Relay.Sim\obj\Debug\netstandard2.1\Relay.Sim.csproj.Up2Date
