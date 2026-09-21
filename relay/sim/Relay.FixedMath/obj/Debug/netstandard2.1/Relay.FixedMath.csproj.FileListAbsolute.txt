@@ -7,3 +7,4 @@ D:\Unity\projects\Domino\relay\sim\Relay.FixedMath\obj\Debug\netstandard2.1\Rela
 D:\Unity\projects\Domino\relay\sim\Relay.FixedMath\obj\Debug\netstandard2.1\Relay.FixedMath.csproj.CoreCompileInputs.cache
 D:\Unity\projects\Domino\relay\sim\Relay.FixedMath\obj\Debug\netstandard2.1\Relay.FixedMath.dll
 D:\Unity\projects\Domino\relay\sim\Relay.FixedMath\obj\Debug\netstandard2.1\Relay.FixedMath.pdb
+D:\Unity\projects\Domino\relay\sim\Relay.FixedMath\obj\Debug\netstandard2.1\Relay.FixedMath.sourcelink.json

@@ -100,3 +100,4 @@ D:\Unity\projects\Domino\relay\sim\Relay.Sim.Tests\obj\Debug\net10.0\Relay.Sim.T
 D:\Unity\projects\Domino\relay\sim\Relay.Sim.Tests\obj\Debug\net10.0\ref\Relay.Sim.Tests.dll
 D:\Unity\projects\Domino\relay\sim\Relay.Sim.Tests\bin\Debug\net10.0\Relay.FixedMath.dll
 D:\Unity\projects\Domino\relay\sim\Relay.Sim.Tests\bin\Debug\net10.0\Relay.FixedMath.pdb
+D:\Unity\projects\Domino\relay\sim\Relay.Sim.Tests\obj\Debug\net10.0\Relay.Sim.Tests.sourcelink.json

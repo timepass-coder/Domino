@@ -88,6 +88,11 @@ namespace Relay.Sim
             if (b.Asleep)
                 return b;
 
+            // a rolling ball is owned entirely by stage 3, which knows the surface
+            // it is pinned to, applying gravity here and cancelling it there would
+            // work, but it throws away precision every trick for no reason
+            if (b.IsRolling) return b;
+
             Vec2 vel = new Vec2(
                 b.Vel.X,
                 b.Vel.Y + gravity * SimConstants.Dt);
@@ -455,7 +460,7 @@ static Ball BounceOffWalls(
     {
         Surface surf = surfaces[i];
 
-        if (!surf.IsVertical || surf.SpansY(b.Pos.Y))
+        if (!surf.IsVertical || !surf.SpansY(b.Pos.Y))
             continue;
 
         Fix wall = surf.A.X;
