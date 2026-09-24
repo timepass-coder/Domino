@@ -70,6 +70,15 @@ public class SimStateTests
                 Fix.Ratio100(5)),
         };
 
+        // Deliberately NOT SimConstants.DefaultBounds. If the golden state used the
+        // default, Bounds could be dropped from the wire format and the golden hash
+        // would not notice - the field has to be distinct to be covered.
+        var bounds = new WorldBounds(
+            Fix.FromInt(-1),
+            Fix.FromInt(-2),
+            Fix.FromInt(19),
+            Fix.FromInt(13));
+
         return new SimState(
             tick: 47,
             gravity: SimConstants.Gravity,
@@ -77,7 +86,8 @@ public class SimStateTests
             dominoes: dominoes,
             surfaces: surfaces,
             chainCount: 1,
-            phase: SimPhase.Running);
+            phase: SimPhase.Running,
+            bounds: bounds);
     }
 
     static SimState Empty() => new SimState(
@@ -89,6 +99,38 @@ public class SimStateTests
         0,
         SimPhase.Ready);
 
+        [Fact]
+        public void TheShortConstructorFallsBackToTheDefaultBox()
+        {
+            // Worlds built in code get the constant kill box, which is what every test
+            // written before Step 8 assumed. Only a machine file narrows it.
+            Assert.Equal(SimConstants.KillBoxMinX.Raw, Empty().Bounds.X0.Raw);
+            Assert.Equal(SimConstants.KillBoxMinY.Raw, Empty().Bounds.Y0.Raw);
+            Assert.Equal(SimConstants.KillBoxMaxX.Raw, Empty().Bounds.X1.Raw);
+            Assert.Equal(SimConstants.KillBoxMaxY.Raw, Empty().Bounds.Y1.Raw);
+        }
+
+        [Fact]
+        public void BoundsAreInclusiveOnEveryEdge()
+        {
+            // A ball resting exactly on the boundary has not left the machine. The edges
+            // are where surfaces get authored, so an exclusive test would fail runs that
+            // are merely touching the edge of a legal platform.
+            var b = new WorldBounds(
+                Fix.Zero,
+                Fix.Zero,
+                Fix.FromInt(9),
+                Fix.FromInt(16));
+
+            Assert.True(b.Contains(new Vec2(Fix.Zero, Fix.Zero)));
+            Assert.True(b.Contains(new Vec2(Fix.FromInt(9), Fix.FromInt(16))));
+            Assert.False(b.Contains(new Vec2(Fix.FromRaw(-1), Fix.Zero)));
+            Assert.False(b.Contains(
+                new Vec2(
+                    Fix.FromInt(9),
+                    Fix.FromRaw(Fix.FromInt(16).Raw + 1))));
+        }
+
     [Fact]
     public void RoundTripPreservesEveryField()
     {
@@ -97,6 +139,10 @@ public class SimStateTests
 
         Assert.Equal(a.Tick, b.Tick);
         Assert.Equal(a.Gravity.Raw, b.Gravity.Raw);
+        Assert.Equal(a.Bounds.X0.Raw, b.Bounds.X0.Raw);
+        Assert.Equal(a.Bounds.Y0.Raw, b.Bounds.Y0.Raw);
+        Assert.Equal(a.Bounds.X1.Raw, b.Bounds.X1.Raw);
+        Assert.Equal(a.Bounds.Y1.Raw, b.Bounds.Y1.Raw);
         Assert.Equal(a.ChainCount, b.ChainCount);
         Assert.Equal(a.Phase, b.Phase);
         Assert.Equal(a.Balls.Length, b.Balls.Length);
@@ -133,6 +179,7 @@ public class SimStateTests
     [InlineData("domino-state")]
     [InlineData("surface-friction")]
     [InlineData("ball-contact")]
+    [InlineData("bounds")]
     public void HashChangesWhenAnyFieldChanges(string what)
     {
         SimState s = Sample();
@@ -151,6 +198,7 @@ public class SimStateTests
         int chain = s.ChainCount;
         SimPhase ph = s.Phase;
         Fix g = s.Gravity;
+        WorldBounds b = s.Bounds;
 
         switch (what)
         {
@@ -168,6 +216,13 @@ public class SimStateTests
 
             case "gravity":
                 g = Fix.FromRaw(s.Gravity.Raw + 1);
+                break;
+            case "bounds":
+                b = new WorldBounds(
+                    s.Bounds.X0,
+                    s.Bounds.Y0,
+                    Fix.FromRaw(s.Bounds.X1.Raw + 1),
+                    s.Bounds.Y1);
                 break;
 
             case "ball-pos":
@@ -225,7 +280,8 @@ public class SimStateTests
             dominoes,
             surfaces,
             chain,
-            ph);
+            ph,
+            b);
     }
 
     [Fact]
@@ -255,16 +311,13 @@ public class SimStateTests
     [Fact]
     public void SerialisedLengthIsExactlyTheDeclaredFormat()
     {
-        // header: version + tick + chain (3 * 4) + gravity (8) + phase (1)
-        //         + three array lengths (3 * 4) = 33
-        // ball:    4 + 6*8 +4+ 1 = 57
-        // domino:  4 + 7*8 + 1 = 61
+        // header: version + tick + gravity + phase = 4 longs
+        //       + bounds (4 * 8) + chain (4) + phase (1)
+        //       + three array lengths (3 * 4) = 65
+        // ball:   4 + 6*8 + 1 = 57 (SurfaceIndex added in format 2)
+        // domino: 4 + 7*8 + 1 = 61
         // surface: 4 + 6*8 = 52
-        int expected =
-            33 +
-            (1 * 57) +
-            (2 * 61) +
-            (1 * 52);
+        int expected = 65 + (1 * 57) + (2 * 61) + (1 * 52);
 
         Assert.Equal(expected, Sample().ToBytes().Length);
     }
@@ -293,8 +346,21 @@ public class SimStateTests
             .Length;
 
         Assert.Equal(
-            7,
+            8,
             actual); // Tick, Gravity, Balls, Dominoes, Surfaces, ChainCount, Phase
+    }
+    [Fact]
+    public void WorldBoundsFieldCountMatchesWireFormat()
+    {
+        // Same guard as the bodies have: a fifth corner added to the box without a
+        // matching WriteTo would vanish from every hash silently.
+        int actual = typeof(WorldBounds)
+            .GetFields(
+                BindingFlags.Public |
+                BindingFlags.Instance)
+            .Length;
+
+        Assert.Equal(4, actual); // X0, Y0, X1, Y1
     }
 
     [Fact]
@@ -317,19 +383,14 @@ public class SimStateTests
     [Fact]
     public void GoldenHashOfSampleState()
     {
-        // Pinned on macOS ARM64, .NET 10.0.401. Fixed point means any CPU, any
-        // runtime, any OS must produce this exact number. If this ever fails on
-        // a new machine, determinism is broken and nothing downstream is
+        // Pinned on macOS on ARM64, .NET 10.0.401, wire format 3. Fixed point means
+        // any CPU, any runtime, any OS must produce this exact number. If this
+        // fails on a new machine, determinism is broken. If this fails on a new
         // trustworthy - fix it before writing another line of physics.
-        
-
-        // It is expected to change whenever FormatVersion does, and only then.
         //
-        // Format 1 (before Ball.SurfaceIndex) was:
-        // 0x557213F417557233
-
-        Assert.Equal(
-            0x40413F78AEDD1278UL,
-            Sample().Hash());
+        // It is expected to change whenever FormatVersion does, and only then.
+        // Format 2 (before WorldBounds)      was 0x40413F78AED01278.
+        // Format 1 (before Ball.SurfaceIndex) was 0x557213F417557233.
+        Assert.Equal(0x65B8BA657590111AUL, Sample().Hash());
     }
 }

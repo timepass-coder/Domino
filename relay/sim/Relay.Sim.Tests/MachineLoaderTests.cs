@@ -4,6 +4,7 @@ using Relay.Sim;
 using Xunit;
 using Fix = FixMath.F64;
 using Vec2 = FixMath.F64Vec2;
+using System.Text;
 
 public class MachineLoaderTests
 {
@@ -66,7 +67,8 @@ public class MachineLoaderTests
             m.SurfaceNames);
 
         Assert.Empty(m.Dominoes);
-        Assert.Equal(900, m.Ticks);
+        Assert.Equal(1080, m.Ticks);
+
 
         // Surface ids are array indices; the file's strings live only in SurfaceNames.
         for (int i = 0; i < m.Surfaces.Length; i++)
@@ -89,7 +91,7 @@ public class MachineLoaderTests
         Assert.Equal(0, b.Id);
         Assert.Equal(Fix.Ratio100(50).Raw, b.Pos.X.Raw);
         Assert.Equal(Fix.Ratio100(835).Raw, b.Pos.Y.Raw);
-        Assert.Equal(Fix.FromInt(3).Raw, b.Vel.X.Raw);
+        Assert.Equal(Fix.FromInt(4).Raw, b.Vel.X.Raw);
         Assert.Equal(0L, b.Vel.Y.Raw);
         Assert.Equal(SimConstants.BallRadius.Raw, b.Radius.Raw);
         Assert.Equal(Fix.One.Raw, b.Mass.Raw);
@@ -207,6 +209,60 @@ public class MachineLoaderTests
         Assert.Equal(m.Gravity.Raw, s.Gravity.Raw);
         Assert.Equal(m.Surfaces.Length, s.Surfaces.Length);
     }
+    [Fact]
+    public void ToStateCarriesTheFilesOwnBoxAndNotTheConstantOne()
+    {
+        // world.bounds stopped being decorative at Step 8c: the state the machine hands
+        // to Step is judged against the file's box, so a ball leaving a 21x15 playfield
+        // fails immediately instead of drifting to the 100-unit safety net first.
+        MachineDef m = Load("m000_roll_and_fall");
+        SimState s = m.ToState();
+
+        Assert.Equal(Fix.FromInt(-1).Raw, s.Bounds.X0.Raw);
+        Assert.Equal(Fix.FromInt(-1).Raw, s.Bounds.Y0.Raw);
+        Assert.Equal(Fix.FromInt(20).Raw, s.Bounds.X1.Raw);
+        Assert.Equal(Fix.FromInt(14).Raw, s.Bounds.Y1.Raw);
+
+        Assert.NotEqual(SimConstants.KillBoxMinX.Raw, s.Bounds.X0.Raw);
+
+        // And it survives a tick, which is what stage 8 reads.
+        Assert.Equal(s.Bounds.X1.Raw, Simulation.Step(s).Bounds.X1.Raw);
+    }
+
+    [Fact]
+    public void ALoadedMachineFailsABallThatLeavesItsDeclaredWorld()
+    {
+        // m001's shelf ends at x = 16 and its world at x = 20. A ball fired hard enough
+        // to run off the end must fail the run, and now does so at the machine's edge.
+        MachineDef m = Load("m001_single_topple");
+        SimState armed = m.ToState();
+
+        var fast = new Ball(
+            0,
+            armed.Balls[0].Pos,
+            new Vec2(Fix.FromInt(20), Fix.Zero),
+            armed.Balls[0].Radius,
+            armed.Balls[0].Mass,
+            Ball.Airborne,
+            false);
+
+        SimState s = Simulation.StepMany(
+            new SimState(
+                0,
+                SimConstants.Gravity,
+                new[] { fast },
+                m.Dominoes,
+                m.Surfaces,
+                0,
+                SimPhase.Ready,
+                m.Bounds),
+            600);
+
+        Assert.Equal(SimPhase.Failed, s.Phase);
+        Assert.True(
+            s.Balls[0].Pos.X.Raw > m.Bounds.X1.Raw,
+            "it should have failed by leaving the right-hand edge");
+    }
 
     [Fact]
     public void ToStateHashesTheSameEveryTime()
@@ -281,58 +337,118 @@ public class MachineLoaderTests
     }
 
     [Fact]
-    public void KnownGap_M000DeclaresFewerTicksThanItNeedsToSettle()
+    public void EveryMachineSettlesInsideItsOwnDeclaredTickBudget()
     {
-        // Measured: m000 settles at tick 978, and its sim.ticks is 900.
-        // Friction 0.02 gives 0.00333 u/s per tick, so a 3.0 u/s ball needs
-        // 900 ticks of rolling on its own, before the 76 ticks it spends
-        // falling between the shelves.
+        // A file that declares fewer ticks than it needs is a level that ends mid-motion.
+        // Step 9 blesses a hash at sim.ticks, so a machine still Running there would pin a
+        // hash of an arbitrary intermediate frame - one that moves every time the physics
+        // is touched, for no reason anyone could read off the file.
         //
-        // Pinned as it stands rather than quietly fixed, because raising the
-        // tick count changes the golden hash and that is Step 9's decision to
-        // make deliberately.
-        //
-        // This test is meant to FAIL when sim.ticks goes up - that is the reminder.
-        MachineDef m = Load("m000_roll_and_fall");
-
-        Assert.Equal(900, m.Ticks);
-
-        SimState atDeclared = Simulation.StepMany(
-            m.ToState(),
-            m.Ticks);
-
-        Assert.Equal(SimPhase.Running, atDeclared.Phase);
-
-        SimState eventually = Simulation.StepMany(
-            m.ToState(),
-            978);
-
-        Assert.Equal(SimPhase.Settled, eventually.Phase);
+        // Measured settle points: m000 tick 808, m001 393, m002 322. m000 used to be the
+        // exception - it settled at 978 against a declared 900 - which is why the spawn
+        // speed and the budget were both raised.
+        foreach (string id in new[]
+        {
+            "m000_roll_and_fall",
+            "m001_single_topple",
+            "m002_chain"
+        })
+        {
+            MachineDef m = Load(id);
+            SimState atDeclared = Simulation.StepMany(m.ToState(), m.Ticks);
+            Assert.Equal(SimPhase.Settled, atDeclared.Phase);
+        }
     }
 
     [Fact]
-    public void KnownGap_M000NeverReachesItsOwnBackstop()
+    public void M000SettlesWithRoomToSpareRatherThanExactlyOnTheBudget()
     {
-        // The ball runs out of speed at x = 12.704. The backstop is at x = 18,
-        // so the one vertical surface in any fixture - the only restitution
-        // above 0 anywhere, and the only file-driven coverage of the wall-bounce
-        // path - is never touched.
-        //
-        // Reaching it needs vx of about 3.42; the file says 3.0.
+        // Settling one tick inside the budget would pass the test above and still be a
+        // level balanced on a knife edge: any change to friction or restitution pushes it
+        // back out. 808 against 1080 is 25% of headroom, which is enough to absorb a
+        // tuning pass without re-authoring the file.
+        MachineDef m = Load("m000_roll_and_fall");
+        Assert.Equal(1080, m.Ticks);
+
+        SimState s = Simulation.StepMany(m.ToState(), 808);
+        Assert.Equal(SimPhase.Settled, s.Phase);
+
+        // And not before 807 - so this is the real settle point, not a range.
+        Assert.NotEqual(
+            SimPhase.Settled,
+            Simulation.StepMany(m.ToState(), 807).Phase);
+    }
+
+    [Fact]
+    public void M000ReachesItsBackstopAndBouncesOffIt()
+    {
+        // The backstop is the only vertical surface in any fixture and carries the only
+        // restitution above 0 anywhere, so until the spawn speed was raised to 4.0 no
+        // fixture exercised the wall-bounce path at all. At 3.0 the ball ran out of speed
+        // at x = 12.704, well short of the wall at 18.
         MachineDef m = Load("m000_roll_and_fall");
 
+        Assert.Equal(Fix.FromInt(18).Raw, m.Surfaces[2].A.X.Raw);
         Assert.Equal(
-            Fix.FromInt(18).Raw,
-            m.Surfaces[2].A.X.Raw);
+            Fix.Ratio100(20).Raw,
+            m.Surfaces[2].Restitution.Raw);
 
-        SimState s = Simulation.StepMany(
-            m.ToState(),
-            978);
+        // Contact is centre-to-wall, so the furthest the centre can get is 18 - radius.
+        SimState s = Simulation.StepMany(m.ToState(), 808);
+        Fix touching = Fix.FromInt(18) - SimConstants.BallRadius;
+
+        Assert.Equal(
+            touching.Raw,
+            Simulation.StepMany(m.ToState(), 690).Balls[0].Pos.X.Raw);
+
+        // Then it comes back. A ball that merely stopped against the wall would leave the
+        // restitution untested, which is the whole point of coming out this far.
+        Assert.True(
+            s.Balls[0].Pos.X.Raw < touching.Raw,
+            "the ball should have rebounded off the backstop, not parked against it");
 
         Assert.True(
-            s.Balls[0].Pos.X.Raw < Fix.FromInt(13).Raw,
-            "if the ball now gets past x = 13 the spawn speed changed; " +
-            "re-measure the backstop");
+            s.Balls[0].Pos.X.Raw > Fix.FromInt(17).Raw,
+            "e = 0.2 is a small rebound; it should not have travelled far back");
+    }
+
+    [Fact]
+    public void TheBackstopReboundScalesByItsOwnRestitution()
+    {
+        // Measured at tick 690: vx 1.960000 becomes ~0.991933, a ratio of 0.19966 against
+        // the declared 0.2. Not exact because the same tick also applies rolling friction.
+        // Pinned because a wall that returned MORE than it was given would make a machine
+        // self-sustaining, and nothing else in the suite would notice.
+        MachineDef m = Load("m000_roll_and_fall");
+
+        SimState before = Simulation.StepMany(m.ToState(), 689);
+        SimState after = Simulation.Step(before);
+
+        Assert.True(
+            before.Balls[0].Vel.X.Raw > 0,
+            "tick 689 should still be rolling right");
+
+        Assert.True(
+            after.Balls[0].Vel.X.Raw < 0,
+            "tick 690 is the rebound");
+
+        Fix incoming = before.Balls[0].Vel.X;
+        Fix outgoing = -after.Balls[0].Vel.X;
+
+        Assert.True(
+            outgoing.Raw < incoming.Raw,
+            "a wall cannot return more speed than it was given");
+
+        // Within 1% of the declared restitution, from below.
+        Fix bound = incoming * m.Surfaces[2].Restitution;
+
+        Assert.True(
+            outgoing.Raw <= bound.Raw,
+            "rebound exceeded e * incoming");
+
+        Assert.True(
+            outgoing.Raw > bound.Raw - bound.Raw / 100,
+            "rebound fell more than 1% under e * incoming");
     }
 
     // ------------------------------------------------------------------
@@ -343,7 +459,12 @@ public class MachineLoaderTests
     /// below is one edit away from a file that works - which is what a real
     /// typo looks like.
     /// </summary>
-    const string Good = @"{
+    /// /// <para>
+    /// Wrap this however you like. The tests match against Good, the collapsed form, so
+    /// reformatting the literal cannot break them.
+    /// </para>
+    /// </summary>
+    const string GoodSource = @"{
       ""id"": ""t"",
       ""version"": 1,
       ""world"": {
@@ -397,6 +518,42 @@ public class MachineLoaderTests
         ""ticks"": 900
       }
     }";
+    /// <summary>
+    /// GoodSource with every run of whitespace collapsed to one space, which is what
+    /// every fragment below is matched against.
+    /// <para>
+    /// Without this the tests depend on how the literal above happens to be wrapped: an
+    /// editor reformatting it one-field-per-line breaks every multi-line fragment and
+    /// five tests fail for a reason that has nothing to do with the loader. Whitespace
+    /// between JSON tokens is insignificant, and no string value in this machine
+    /// contains a space, so collapsing cannot change what the machine means.
+    /// </para>
+    /// </summary>
+    static readonly string Good = Collapse(GoodSource);
+
+    static string Collapse(string s)
+    {
+        var sb = new StringBuilder(s.Length);
+        bool gap = false;
+
+        for (int i = 0; i < s.Length; i++)
+        {
+            char c = s[i];
+            if (c == ' ' || c == '\t' || c == '\r' || c == '\n')
+            {
+                gap = true;
+                continue;
+            }
+
+            if (gap && sb.Length > 0)
+                sb.Append(' ');
+
+            gap = false;
+            sb.Append(c);
+        }
+
+        return sb.ToString();
+    }
 
     static MachineDef P(string text)
         => MachineLoader.Parse(text, null);
@@ -434,6 +591,21 @@ public class MachineLoaderTests
         Assert.Equal("t", m.Id);
         Assert.Single(m.Dominoes);
     }
+
+    [Fact]
+    public void TheFragmentsBelowDoNotDependOnHowTheLiteralIsWrapped()
+    {
+        // The invariant every Swap rests on: one line, single spaces, so a fragment can
+        // be written the obvious way and still match. Reformatting GoodSource one field
+        // per line once broke five tests for a reason unrelated to the loader.
+        Assert.DoesNotContain("\n", Good);
+        Assert.DoesNotContain("\t", Good);
+        Assert.DoesNotContain("  ", Good);
+
+        // And collapsing does not change what the machine means, however it arrived.
+        string rewrapped = GoodSource.Replace(", ", ",\n            ");
+        Assert.Equal(Good, Collapse(rewrapped));
+}
 
     [Theory]
     // Version and identity.
@@ -609,13 +781,11 @@ public class MachineLoaderTests
     [Fact]
     public void DuplicateSurfaceNamesAreRejected()
     {
-        string two = Swap(
-            @"{ ""id"": ""shelf"", ""x0"": 0.0, ""y0"": 8.0, ""x1"": 16.0, ""y1"": 8.0,
-          ""friction"": 0.02, ""restitution"": 0.0 }",
-            @"{ ""id"": ""shelf"", ""x0"": 0.0, ""y0"": 8.0, ""x1"": 16.0, ""y1"": 8.0,
-          ""friction"": 0.02, ""restitution"": 0.0 },
-        { ""id"": ""shelf"", ""x0"": 0.0, ""y0"": 4.0, ""x1"": 16.0, ""y1"": 4.0,
-          ""friction"": 0.02, ""restitution"": 0.0 }");
+        // Fragments are written collapsed - single spaces, one line - because that is
+// what Good holds. Matching is then independent of the literal's formatting.
+string two = Swap(
+    @"{ ""id"": ""shelf"", ""x0"": 0.0, ""y0"": 8.0, ""x1"": 16.0, ""y1"": 8.0, ""friction"": 0.02, ""restitution"": 0.0 }",
+    @"{ ""id"": ""shelf"", ""x0"": 0.0, ""y0"": 8.0, ""x1"": 16.0, ""y1"": 8.0, ""friction"": 0.02, ""restitution"": 0.0 }, { ""id"": ""shelf"", ""x0"": 0.0, ""y0"": 4.0, ""x1"": 16.0, ""y1"": 4.0, ""friction"": 0.02, ""restitution"": 0.0 }");
 
         Assert.Contains(
             "already used by surfaces[0]",
@@ -630,12 +800,8 @@ public class MachineLoaderTests
         // resolve them as a permanent mutual contact and the chain would behave
         // inexplicably.
         string text = Swap(
-            @"{ ""type"": ""domino"", ""id"": ""d0"", ""surface"": ""shelf"", ""x"": 6.0,
-          ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" }",
-            @"{ ""type"": ""domino"", ""id"": ""d0"", ""surface"": ""shelf"", ""x"": 6.0,
-          ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" },
-        { ""type"": ""domino"", ""id"": ""d1"", ""surface"": ""shelf"", ""x"": 6.1,
-          ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" }");
+        @"{ ""type"": ""domino"", ""id"": ""d0"", ""surface"": ""shelf"", ""x"": 6.0, ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" }",
+        @"{ ""type"": ""domino"", ""id"": ""d0"", ""surface"": ""shelf"", ""x"": 6.0, ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" }, { ""type"": ""domino"", ""id"": ""d1"", ""surface"": ""shelf"", ""x"": 6.1, ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" }");
 
         Assert.Contains(
             "overlap",
@@ -650,12 +816,8 @@ public class MachineLoaderTests
         // Legal, because a chain packed that tightly is a design choice, not a
         // broken file.
         string text = Swap(
-            @"""x"": 6.0,
-          ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" }",
-            @"""x"": 6.0,
-          ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" },
-        { ""type"": ""domino"", ""id"": ""d1"", ""surface"": ""shelf"", ""x"": 6.18,
-          ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" }");
+        @"""x"": 6.0, ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" }",
+        @"""x"": 6.0, ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" }, { ""type"": ""domino"", ""id"": ""d1"", ""surface"": ""shelf"", ""x"": 6.18, ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" }");
 
         Assert.Equal(2, P(text).Dominoes.Length);
     }

@@ -1,0 +1,95 @@
+{
+  "id": "m002_chain",
+  "version": 1,
+  "notes": "Ball into a five-domino chain at 0.80 spacing (80% of domino height). All five must go over. This is the machine the golden-hash regression test and the cross-device hash comparison both run. Spacing is deliberately inside R with slack to spare - the knife-edge case is measured separately by ReachDerivationTests, not baked into a fixture.",
+  "world": {
+    "gravity": -20.0,
+    "bounds": {
+      "x0": -1.0,
+      "y0": -1.0,
+      "x1": 20.0,
+      "y1": 14.0
+    }
+  },
+  "surfaces": [
+    {
+      "id": "shelf",
+      "x0": 0.0,
+      "y0": 8.0,
+      "x1": 16.0,
+      "y1": 8.0,
+      "friction": 0.02,
+      "restitution": 0.0
+    }
+  ],
+  "spawns": [
+    {
+      "type": "ball",
+      "id": "b0",
+      "x": 0.5,
+      "y": 8.35,
+      "vx": 3.0,
+      "vy": 0.0,
+      "radius": 0.35,
+      "mass": 1.0
+    }
+  ],
+  "fixed": [
+    {
+      "type": "domino",
+      "id": "d0",
+      "surface": "shelf",
+      "x": 4.0,
+      "height": 1.0,
+      "thickness": 0.18,
+      "mass": 1.0,
+      "lean": "right"
+    },
+    {
+      "type": "domino",
+      "id": "d1",
+      "surface": "shelf",
+      "x": 4.8,
+      "height": 1.0,
+      "thickness": 0.18,
+      "mass": 1.0,
+      "lean": "right"
+    },
+    {
+      "type": "domino",
+      "id": "d2",
+      "surface": "shelf",
+      "x": 5.6,
+      "height": 1.0,
+      "thickness": 0.18,
+      "mass": 1.0,
+      "lean": "right"
+    },
+    {
+      "type": "domino",
+      "id": "d3",
+      "surface": "shelf",
+      "x": 6.4,
+      "height": 1.0,
+      "thickness": 0.18,
+      "mass": 1.0,
+      "lean": "right"
+    },
+    {
+      "type": "domino",
+      "id": "d4",
+      "surface": "shelf",
+      "x": 7.2,
+      "height": 1.0,
+      "thickness": 0.18,
+      "mass": 1.0,
+      "lean": "right"
+    }
+  ],
+  "gaps": [],
+  "budget": {},
+  "target": null,
+  "sim": {
+    "ticks": 1200
+  }
+}

@@ -18,3 +18,4 @@ D:\Unity\projects\Domino\relay\sim\Relay.Sim.Harness\obj\Debug\net10.0\Relay.Sim
 D:\Unity\projects\Domino\relay\sim\Relay.Sim.Harness\obj\Debug\net10.0\ref\Relay.Sim.Harness.dll
 D:\Unity\projects\Domino\relay\sim\Relay.Sim.Harness\bin\Debug\net10.0\Relay.FixedMath.dll
 D:\Unity\projects\Domino\relay\sim\Relay.Sim.Harness\bin\Debug\net10.0\Relay.FixedMath.pdb
+D:\Unity\projects\Domino\relay\sim\Relay.Sim.Harness\obj\Debug\net10.0\Relay.Sim.Harness.sourcelink.json

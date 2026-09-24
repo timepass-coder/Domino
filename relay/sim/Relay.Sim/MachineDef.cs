@@ -24,27 +24,6 @@ namespace Relay.Sim
     /// two cannot contradict each other in the meantime.
     /// </para>
     /// </summary>
-    public readonly struct WorldBounds
-    {
-        public readonly Fix X0;
-        public readonly Fix Y0;
-        public readonly Fix X1;
-        public readonly Fix Y1;
-
-        public WorldBounds(Fix x0, Fix y0, Fix x1, Fix y1)
-        {
-            X0 = x0;
-            Y0 = y0;
-            X1 = x1;
-            Y1 = y1;
-        }
-
-        public bool Contains(Vec2 p)
-            => p.X.Raw >= X0.Raw &&
-               p.X.Raw <= X1.Raw &&
-               p.Y.Raw >= Y0.Raw &&
-               p.Y.Raw <= Y1.Raw;
-    }
 
     /// <summary>
     /// A validated machine file. The bridge between text and simulation, and the only
@@ -154,7 +133,7 @@ namespace Relay.Sim
                 dominoes,
                 Surfaces,
                 0,
-                SimPhase.Ready);
+                SimPhase.Ready, Bounds);
         }
 
         /// <summary>

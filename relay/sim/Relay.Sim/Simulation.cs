@@ -50,7 +50,7 @@ namespace Relay.Sim
                 dominoes[i] = SettleDomino(dominoes[i]);
 
             // 8. Kill box.
-            bool failed = AnyBallOutOfBounds(balls);
+            bool failed = AnyBallOutOfBounds(balls, s.Bounds);
 
             // 9. Bookkeeping.
             int chain = CountToppled(dominoes);
@@ -67,9 +67,9 @@ namespace Relay.Sim
                 dominoes,
                 surfaces,
                 chain,
-                phase);
+                phase,
+                s.Bounds);
         }
-
         /// <summary>
         /// Runs n ticks. Convenience only - carries no state of its own.
         /// </summary>
@@ -237,22 +237,17 @@ namespace Relay.Sim
 
         // -------------------------------------------------------------------- stage 8
 
-        static bool AnyBallOutOfBounds(Ball[] balls)
+        /// <summary>
+        /// Tests the machine's own box, carried on the state, rather than a constant. A
+        /// level 9 units wide should fail a ball that leaves it, not wait until the ball
+        /// is 100 units away - and the box travels with the state so a replay cannot
+        /// disagree with the run it replays.
+        /// </summary>
+        static bool AnyBallOutOfBounds(Ball[] balls, WorldBounds bounds)
         {
             for (int i = 0; i < balls.Length; i++)
             {
-                Vec2 p = balls[i].Pos;
-
-                if (p.X.Raw < SimConstants.KillBoxMinX.Raw)
-                    return true;
-
-                if (p.X.Raw > SimConstants.KillBoxMaxX.Raw)
-                    return true;
-
-                if (p.Y.Raw < SimConstants.KillBoxMinY.Raw)
-                    return true;
-
-                if (p.Y.Raw > SimConstants.KillBoxMaxY.Raw)
+                if (!bounds.Contains(balls[i].Pos))
                     return true;
             }
 

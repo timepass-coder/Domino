@@ -230,16 +230,19 @@ namespace Relay.Sim
                     "world.bounds: y1 must be greater than y0");
             }
 
-            // The file's box must sit inside the sim's hard kill box, or the wider one
-            // would be decorative: a body can leave the machine's bounds and still be
-            // inside the net that actually fails the run.
+            // Stage 8 now tests this box and not the constant one, so the constant's only
+            // remaining job is to be an outer limit on what a file may ask for. A machine
+            // declaring a box 10000 units wide would let a ball wander that far before the
+            // run was called failed, which is a hang in everything but name.
+
             if (x0.Raw < SimConstants.KillBoxMinX.Raw ||
                 x1.Raw > SimConstants.KillBoxMaxX.Raw ||
                 y0.Raw < SimConstants.KillBoxMinY.Raw ||
                 y1.Raw > SimConstants.KillBoxMaxY.Raw)
             {
                 throw new MachineFormatException(
-                    "world.bounds reaches outside the sim's kill box, so it could never fire");
+                    "world.bounds reaches outside the sim's kill box, which is the outer " +
+                    "limit on how far a run may stray before it is called failed");
             }
 
             bounds = new WorldBounds(

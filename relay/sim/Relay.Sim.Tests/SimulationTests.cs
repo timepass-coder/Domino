@@ -51,6 +51,16 @@ public class SimulationTests
             Array.Empty<Surface>(),
             0,
             SimPhase.Ready);
+    static SimState WorldIn(WorldBounds bounds, Ball[] balls)
+    => new SimState(
+        0,
+        SimConstants.Gravity,
+        balls,
+        Array.Empty<Domino>(),
+        Array.Empty<Surface>(),
+        0,
+        SimPhase.Ready,
+        bounds);
 
     // ------------------------------------------------------------------ determinism
 
@@ -596,6 +606,64 @@ public class SimulationTests
         Assert.Equal(
             SimPhase.Failed,
             s.Phase);
+    }
+
+    [Fact]
+    public void TheMachinesOwnBoxFailsARunTheConstantBoxWouldHaveAllowed()
+    {
+        // The whole point of Step 8c. This ball falls from y = 0 and is still well
+        // inside the constant kill box at y = -50 for four full seconds; a machine that
+        // says its world stops at y = -2 should have failed it long before.
+        var tight = new WorldBounds(
+            Fix.FromInt(-9),
+            Fix.FromInt(-2),
+            Fix.FromInt(9),
+            Fix.FromInt(16));
+
+        SimState s = Simulation.StepMany(
+            WorldIn(
+                tight,
+                new[] { BallAt(0, Fix.Zero, Fix.Zero, Fix.Zero, Fix.Zero) }),
+            120);
+
+        Assert.Equal(SimPhase.Failed, s.Phase);
+
+        // Same ball, same ticks, default box: still running, nowhere near the net.
+        SimState wide = Simulation.StepMany(
+            World(
+                new[] { BallAt(0, Fix.Zero, Fix.Zero, Fix.Zero, Fix.Zero) },
+                Array.Empty<Domino>()),
+                120);
+
+        Assert.NotEqual(SimPhase.Failed, wide.Phase);
+        Assert.True(
+            wide.Balls[0].Pos.Y.Raw > SimConstants.KillBoxMinY.Raw);
+    }
+
+    [Fact]
+    public void TheBoxTravelsWithTheStateSoEveryTickAgrees()
+    {
+        // Bounds are carried, not looked up. If Step read them from anywhere else a
+        // replay could be judged against a different box than the run that produced it.
+        var tight = new WorldBounds(
+            Fix.FromInt(-9),
+            Fix.FromInt(-2),
+            Fix.FromInt(9),
+            Fix.FromInt(16));
+
+        SimState s = WorldIn(
+            tight,
+            new[] { BallAt(0, Fix.Zero, Fix.FromInt(4), Fix.Zero, Fix.Zero) });
+
+        for (int i = 0; i < 60; i++)
+        {
+            s = Simulation.Step(s);
+
+            Assert.Equal(tight.X0.Raw, s.Bounds.X0.Raw);
+            Assert.Equal(tight.Y0.Raw, s.Bounds.Y0.Raw);
+            Assert.Equal(tight.X1.Raw, s.Bounds.X1.Raw);
+            Assert.Equal(tight.Y1.Raw, s.Bounds.Y1.Raw);
+        }
     }
 
     [Fact]

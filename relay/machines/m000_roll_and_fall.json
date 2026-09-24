@@ -1,0 +1,62 @@
+{
+  "id": "m000_roll_and_fall",
+  "version": 1,
+  "notes": "Ball only. Rolls right along the top shelf, leaves the edge, free-falls to the lower shelf, rolls on to the backstop and rebounds off it. Exercises circle-vs-axis-aligned-surface contact, rolling friction, free-fall and the only non-zero restitution in any fixture. No dominoes, no player placement.",
+  "world": {
+    "gravity": -20.0,
+    "bounds": {
+      "x0": -1.0,
+      "y0": -1.0,
+      "x1": 20.0,
+      "y1": 14.0
+    }
+  },
+  "surfaces": [
+    {
+      "id": "shelf_top",
+      "x0": 0.0,
+      "y0": 8.0,
+      "x1": 9.0,
+      "y1": 8.0,
+      "friction": 0.02,
+      "restitution": 0.0
+    },
+    {
+      "id": "shelf_bottom",
+      "x0": 6.0,
+      "y0": 4.0,
+      "x1": 18.0,
+      "y1": 4.0,
+      "friction": 0.02,
+      "restitution": 0.0
+    },
+    {
+      "id": "backstop",
+      "x0": 18.0,
+      "y0": 4.0,
+      "x1": 18.0,
+      "y1": 6.0,
+      "friction": 0.02,
+      "restitution": 0.2
+    }
+  ],
+  "spawns": [
+    {
+      "type": "ball",
+      "id": "b0",
+      "x": 0.5,
+      "y": 8.35,
+      "vx": 4.0,
+      "vy": 0.0,
+      "radius": 0.35,
+      "mass": 1.0
+    }
+  ],
+  "fixed": [],
+  "gaps": [],
+  "budget": {},
+  "target": null,
+  "sim": {
+    "ticks": 1080
+  }
+}

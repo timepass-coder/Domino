@@ -110,12 +110,21 @@ namespace Relay.Sim
     public static readonly Fix DominoFallenAngle = Fix.PiHalf;
 
     // ---------------------------------------------------------------------------
-    // Kill box. A body outside this has left the machine; the run failed.
-    // Generous on purpose - it is a safety net, not a level boundary.
+    // --- Kill box. The outer limit of anywhere a body may be.
+    // --- Generous on purpose - a backstop, not a level boundary. A machine
+    // --- file names its own, tighter box in world.bounds, and the loader requires
+    // --- that box to sit inside this one so the two cannot contradict each other.
 
     public static readonly Fix KillBoxMinX = Fix.FromInt(-100);
     public static readonly Fix KillBoxMaxX = Fix.FromInt(100);
     public static readonly Fix KillBoxMinY = Fix.FromInt(-50);
     public static readonly Fix KillBoxMaxY = Fix.FromInt(200);
+
+    /// <summary>
+    /// The kill box as a WorldBounds, for states built in code rather than loaded
+    /// from a file. A machine-driven run uses the file's box instead.
+    /// </summary>
+    public static readonly WorldBounds DefaultBounds =
+        new WorldBounds(KillBoxMinX, KillBoxMinY, KillBoxMaxX, KillBoxMaxY);
     }
 }

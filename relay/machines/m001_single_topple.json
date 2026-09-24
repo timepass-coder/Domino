@@ -1,0 +1,55 @@
+{
+  "id": "m001_single_topple",
+  "version": 1,
+  "notes": "Ball rolls into one standing domino and must topple it. The smallest possible handoff. If this works and the domino comes to rest flat at theta = 90deg without jitter, the domino model is sound.",
+  "world": {
+    "gravity": -20.0,
+    "bounds": {
+      "x0": -1.0,
+      "y0": -1.0,
+      "x1": 20.0,
+      "y1": 14.0
+    }
+  },
+  "surfaces": [
+    {
+      "id": "shelf",
+      "x0": 0.0,
+      "y0": 8.0,
+      "x1": 16.0,
+      "y1": 8.0,
+      "friction": 0.02,
+      "restitution": 0.0
+    }
+  ],
+  "spawns": [
+    {
+      "type": "ball",
+      "id": "b0",
+      "x": 0.5,
+      "y": 8.35,
+      "vx": 3.0,
+      "vy": 0.0,
+      "radius": 0.35,
+      "mass": 1.0
+    }
+  ],
+  "fixed": [
+    {
+      "type": "domino",
+      "id": "d0",
+      "surface": "shelf",
+      "x": 6.0,
+      "height": 1.0,
+      "thickness": 0.18,
+      "mass": 1.0,
+      "lean": "right"
+    }
+  ],
+  "gaps": [],
+  "budget": {},
+  "target": null,
+  "sim": {
+    "ticks": 900
+  }
+}
