@@ -1,0 +1,47 @@
+name: determinism
+
+# The sim is a plain .NET library with no engine dependency, so CI needs no
+# Unity license and no runner secrets. That is a deliberate consequence of the
+# architecture, not a lucky accident — keep it that way.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  sim:
+    runs-on: ubuntu-latest
+
+    # The solution lives under relay/, not at the repo root.
+    defaults:
+      run:
+        working-directory: relay
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore sim/Relay.Sim.Tests/Relay.Sim.Tests.csproj
+
+      - name: Build
+        run: dotnet build sim/Relay.Sim.Tests/Relay.Sim.Tests.csproj -c Release --no-restore
+
+      - name: Test (purity, physics, golden hashes)
+        run: dotnet test sim/Relay.Sim.Tests/Relay.Sim.Tests.csproj -c Release --no-build --logger "console;verbosity=normal"
+
+      # Same machine, 50 runs, one hash. This is exit criterion 1 as a CI gate.
+      - name: Determinism harness
+        run: |
+          dotnet run --project sim/Relay.Sim.Harness -c Release -- machines/m002_chain.json --runs 50 --assert-identical
+
+      # Linux x64 hash recorded here; compare against the Windows desktop run and
+      # the Android ARM64 run from the on-device DeterminismScreen.
+      - name: Print cross-platform reference hash
+        run: |
+          dotnet run --project sim/Relay.Sim.Harness -c Release -- machines/m002_chain.json --runs 1 --print-hash-only
