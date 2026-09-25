@@ -20,11 +20,11 @@ obj/
 *.aab
 *.unitypackage
 
-# The sim DLL is a build artefact, not source: tools/build-sim.ps1 makes it
-/relay/unity/RelayUnity/Assets/Plugins/Relay.Sim.dll
-/relay/unity/RelayUnity/Assets/Plugins/Relay.Sim.dll.meta
-/relay/unity/RelayUnity/Assets/Plugins/Relay.Sim.pdb
-/relay/unity/RelayUnity/Assets/Plugins/Relay.Sim.pdb.meta
+# The sim DLL is a build artefact, not source: tools/build-sim.ps1 makes them
+/relay/unity/RelayUnity/Assets/Plugins/Relay.Sim.*.dll
+/relay/unity/RelayUnity/Assets/Plugins/Relay.Sim.*.dll.meta
+/relay/unity/RelayUnity/Assets/Plugins/Relay.Sim.*.pdb
+/relay/unity/RelayUnity/Assets/Plugins/Relay.Sim.*.pdb.meta
 
 # OS
 .DS_Store
