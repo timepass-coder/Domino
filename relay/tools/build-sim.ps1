@@ -26,6 +26,8 @@ $testProj = Join-Path $relayRoot 'sim/Relay.Sim.Tests/Relay.Sim.Tests.csproj'
 $simProj = Join-Path $relayRoot 'sim/Relay.Sim/Relay.Sim.csproj'
 $outDir = Join-Path $relayRoot "sim/Relay.Sim/bin/$Configuration/netstandard2.1"
 $pluginDir = Join-Path $relayRoot 'unity/RelayUnity/Assets/Plugins'
+$machineIn = Join-Path $relayRoot 'machines'
+$machineOut = Join-Path $relayRoot 'unity/RelayUnity/Assets/Resources/Machines'
 
 # Relay.Sim depends on Relay.FixedMath. Unity needs both, or the sim fails to load.
 $assemblies = @('Relay.Sim', 'Relay.FixedMath')
@@ -66,5 +68,13 @@ foreach ($name in $assemblies) {
 
     Write-Host "==> Copied $name.dll -> Assets/Plugins" -ForegroundColor Green
 }
+# Copies, not the originals: relay/machines stays the one source of truth, and Unity gets them
+# through Resources because on Android the end up inside the APK where File cannot read them.
+if (-not (Test-Path $machineOut)) {
+    New-Item -ItemType Directory -Path $machineOut -Force | Out-Null
+}
+Get-ChildItem $machineOut -Filter '*.json' | Remove-Item
+Get-ChildItem $machineIn -Filter '*.json' | Copy-Item -Destination $machineOut
+Write-Host "==> Copied machines/*.json -> Assets/Resources/Machines" -ForegroundColor Green
 
 Write-Host "==> Switch to the Unity window to trigger a reimport." -ForegroundColor DarkGray

@@ -25,6 +25,8 @@ obj/
 /relay/unity/RelayUnity/Assets/Plugins/Relay.Sim.*.dll.meta
 /relay/unity/RelayUnity/Assets/Plugins/Relay.Sim.*.pdb
 /relay/unity/RelayUnity/Assets/Plugins/Relay.Sim.*.pdb.meta
+/relay/unity/RelayUnity/Assets/Resources/Machines/
+/relay/unity/RelayUnity/Assets/Resources/Machines.meta
 
 # OS
 .DS_Store
