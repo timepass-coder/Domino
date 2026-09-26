@@ -13,9 +13,6 @@ public sealed class SimView : MonoBehaviour
     SimRunner _runner;
     Transform[] _balls;
     Transform[] _dominoes;
-    float _fps;
-    int _hashTick = -1;
-    ulong _hash;
 
     void Start()
     {
@@ -57,11 +54,6 @@ public sealed class SimView : MonoBehaviour
     void LateUpdate()
     {
         DrawIn(in _runner.Prev, in _runner.Cur, _runner.Alpha);
-        _fps = Mathf.Lerp(
-            _fps,
-            1f / Mathf.Max(Time.unscaledDeltaTime, 1e-4f),
-            0.05f
-        );
     }
 
     void DrawIn(in SimState prev, in SimState cur, float alpha)
@@ -218,20 +210,4 @@ public sealed class SimView : MonoBehaviour
     static Vector2 ToVector(F64Vec2 v) =>
         new Vector2(v.X.Float, v.Y.Float);
 
-    void OnGUI()
-    {
-        ref readonly SimState s = ref _runner.Cur;
-
-        if (s.Tick != _hashTick)
-        {
-            _hash = s.Hash();
-            _hashTick = s.Tick;
-        }
-
-        GUI.skin.label.fontSize = Mathf.Max(14, Screen.height / 45);
-
-        GUILayout.Label($"runner={_runner.Machine.Id}");
-        GUILayout.Label($"hash {_hash:X16} tick {s.Tick} phase {s.Phase}");
-        GUILayout.Label($"fps {_fps:F0} target {_runner.TargetFrameRate}");
-    }
 }
