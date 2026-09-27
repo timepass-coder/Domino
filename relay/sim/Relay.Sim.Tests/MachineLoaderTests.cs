@@ -531,7 +531,7 @@ public class MachineLoaderTests
     /// </summary>
     static readonly string Good = Collapse(GoodSource);
 
-    static string Collapse(string s)
+    internal static string Collapse(string s)
     {
         var sb = new StringBuilder(s.Length);
         bool gap = false;
@@ -705,21 +705,11 @@ public class MachineLoaderTests
         @"""lean"": ""sideways""",
         "must be \"left\" or \"right\"")]
 
-    // Phase 1 fields must be empty rather than ignored.
-    [InlineData(
-        @"""gaps"": []",
-        @"""gaps"": [1]",
-        "gaps are Phase 1")]
-
-    [InlineData(
-        @"""budget"": {}",
-        @"""budget"": {""n"": 1}",
-        "budgets are Phase 1")]
-
-    [InlineData(
-        @"""target"": null",
-        @"""target"": 3",
-        "targets are Phase 1")]
+    // Phase 1 fields: the wrong shape is named, not ignored. The rules for the right
+    // shape are in MachineLoaderLevelTests.
+    [InlineData(@"""gaps"": []", @"""gaps"": [1]", "gaps[0]: expected an object, found Number")]
+    [InlineData(@"""budget"": {}", @"""budget"": {""n"": 1}", "budget: unknown field \"n\"")]
+    [InlineData(@"""target"": null", @"""target"": 3", "expected an object or null")]
 
     // Ticks.
     [InlineData(@"""ticks"": 900", @"""ticks"": 0", "at least 1")]
@@ -816,10 +806,11 @@ string two = Swap(
         // Legal, because a chain packed that tightly is a design choice, not a
         // broken file.
         string text = Swap(
-        @"""x"": 6.0, ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" }",
-        @"""x"": 6.0, ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" }, { ""type"": ""domino"", ""id"": ""d1"", ""surface"": ""shelf"", ""x"": 6.18, ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" }");
+            @"{ ""type"": ""domino"", ""id"": ""d0"", ""surface"": ""shelf"", ""x"": 6.0, ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" }",
+            @"{ ""type"": ""domino"", ""id"": ""lead1"", ""surface"": ""shelf"", ""x"": 5.0, ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" }, { ""type"": ""domino"", ""id"": ""d0"", ""surface"": ""shelf"", ""x"": 6.0, ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" }, { ""type"": ""domino"", ""id"": ""d1"", ""surface"": ""shelf"", ""x"": 6.18, ""height"": 1.0, ""thickness"": 0.18, ""mass"": 1.0, ""lean"": ""right"" }"
+        );
 
-        Assert.Equal(2, P(text).Dominoes.Length);
+        Assert.Equal(3, P(text).Dominoes.Length);
     }
 
     [Fact]

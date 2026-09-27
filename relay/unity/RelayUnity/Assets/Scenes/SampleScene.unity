@@ -476,7 +476,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SimRunner
   machineId: m002_chain
-  targetFrameRate: 120
+  targetFrameRate: 60
   autoRun: 1
 --- !u!4 &1012872863
 Transform:

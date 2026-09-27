@@ -16,6 +16,48 @@ namespace Relay.Sim
     }
 
     /// <summary>
+    /// A stretch of one surface the player may place into. Placement data, not a body:
+    /// the sim never sees a gap, only the dominoes placed in it.
+    /// </summary>
+    public readonly struct Gap
+    {
+        public readonly int Surface; // index into MachineDef.Surfaces
+        public readonly Fix X0;      // a placed piece's whole footprint must fit
+        public readonly Fix X1;      // inside [X0, X1]
+
+        public Gap(int surface, Fix x0, Fix x1)
+        {
+            Surface = surface;
+            X0 = x0;
+            X1 = x1;
+        }
+    }
+
+    /// <summary>
+    /// What the machine is for: a box standing on a surface. The run is won the moment
+    /// anything - ball or domino - touches it. Defined here; the touching is Phase 1
+    /// Step 4.
+    /// </summary>
+    public readonly struct Goal
+    {
+        public readonly int Surface; // index into MachineDef.Surfaces
+        public readonly Vec2 Base;   // centre of the bottom edge, on the surface
+        public readonly Fix Width;
+        public readonly Fix Height;
+
+        public Goal(int surface, Vec2 baseCentre, Fix width, Fix height)
+        {
+            Surface = surface;
+            Base = baseCentre;
+            Width = width;
+            Height = height;
+        }
+
+        public Fix MinX => Base.X - Fix.Div(Width, Fix.Two);
+        public Fix MaxX => Base.X + Fix.Div(Width, Fix.Two);
+    }
+
+    /// <summary>
     /// The machine's own kill box, from <c>world.bounds</c>. A body outside it has
     /// left the machine and the run has failed.
     /// <para>
@@ -64,24 +106,25 @@ namespace Relay.Sim
         public readonly string[] DominoNames; // parallel to Dominoes
         public readonly LeanHint[] DominoLeans; // parallel to Dominoes
 
-        /// <summary>
-        /// How long the harness should run this machine for.
-        /// </summary>
+        public readonly Gap[] Gaps;
+        public readonly string[] GapNames; // parallel to Gaps
+
+        /// <summary>How many dominoes the player may place. 0 in a Phase 0 machine.</summary>
+        public readonly int DominoBudget;
+
+        /// <summary>The goal, or null for a machine that just runs (Phase 0).</summary>
+        public readonly Goal? Target;
+
+        /// <summary>How long the harness should run this machine for.</summary>
         public readonly int Ticks;
 
         public MachineDef(
-            string id,
-            int version,
-            string notes,
-            Fix gravity,
+            string id, int version, string notes, Fix gravity,
             WorldBounds bounds,
-            Surface[] surfaces,
-            string[] surfaceNames,
-            Ball[] balls,
-            string[] ballNames,
-            Domino[] dominoes,
-            string[] dominoNames,
-            LeanHint[] dominoLeans,
+            Surface[] surfaces, string[] surfaceNames,
+            Ball[] balls, string[] ballNames,
+            Domino[] dominoes, string[] dominoNames, LeanHint[] dominoLeans,
+            Gap[] gaps, string[] gapNames, int dominoBudget, Goal? target,
             int ticks)
         {
             Id = id;
@@ -99,6 +142,11 @@ namespace Relay.Sim
             Dominoes = dominoes;
             DominoNames = dominoNames;
             DominoLeans = dominoLeans;
+
+            Gaps = gaps;
+            GapNames = gapNames;
+            DominoBudget = dominoBudget;
+            Target = target;
 
             Ticks = ticks;
         }
@@ -150,6 +198,18 @@ namespace Relay.Sim
                 {
                     return i;
                 }
+            }
+
+            return -1;
+        }
+
+        /// <summary>Index of a named gap, or -1. Linear over file order.</summary>
+        public int GapIndex(string name)
+        {
+            for (int i = 0; i < GapNames.Length; i++)
+            {
+                if (string.Equals(GapNames[i], name, StringComparison.Ordinal))
+                    return i;
             }
 
             return -1;

@@ -109,6 +109,18 @@ namespace Relay.Sim
     /// <summary>A domino is flat on its face at 90 degrees from upright.</summary>
     public static readonly Fix DominoFallenAngle = Fix.PiHalf;
 
+    // ── Level rules. Not physics: limits a machine file must respect so the physics
+    // ── above can do what the level promises.
+
+    /// <summary>
+    /// Smallest base-to-base spacing between the first two dominoes of a chain. Below
+    /// it the first domino meets the second before passing its own balance point, so
+    /// a push that tips one domino cannot start the chain. Measured at Phase 0
+    /// Step 10 for the standard 1.0 x 0.18 domino (sim/UNITS.md, start-up limit);
+    /// re-measure when a second domino size arrives.
+    /// </summary>
+    public static readonly Fix StartUpMinSpacing = Fix.Ratio100(38); // 0.38
+
     // ---------------------------------------------------------------------------
     // --- Kill box. The outer limit of anywhere a body may be.
     // --- Generous on purpose - a backstop, not a level boundary. A machine

@@ -135,25 +135,35 @@ namespace Relay.Sim
                 takenIds,
                 out Domino[] dominoes,
                 out string[] dominoNames,
-                out LeanHint[] leans);
+                out LeanHint[] leans,
+                out int[] dominoSurfaces);
 
-            RequireEmptyArray(
+            ParseGaps(
                 root,
-                "gaps",
-                "machine",
-                "gaps are Phase 1 - Phase 0 machines have no player placement");
+                surfaces,
+                surfaceNames,
+                takenIds,
+                dominoes,
+                dominoNames,
+                dominoSurfaces,
+                out Gap[] gaps,
+                out string[] gapNames);
 
-            RequireEmptyObject(
-                root,
-                "budget",
-                "machine",
-                "budgets are Phase 1 - Phase 0 has nothing to spend");
+            int dominoBudget = ParseBudget(root);
 
-            RequireNull(
+            Goal? target = ParseTarget(
                 root,
-                "target",
-                "machine",
-                "targets are Phase 1 - a Phase 0 machine just runs");
+                bounds,
+                surfaces,
+                surfaceNames,
+                dominoes,
+                dominoNames,
+                dominoSurfaces,
+                gaps,
+                gapNames);
+
+            CheckPlayable(gaps, dominoBudget, target);
+            CheckStartup(surfaces, dominoes, dominoNames, dominoSurfaces, gaps);
 
             int ticks = ParseSim(root);
 
@@ -170,6 +180,10 @@ namespace Relay.Sim
                 dominoes,
                 dominoNames,
                 leans,
+                gaps,
+                gapNames,
+                dominoBudget,
+                target,
                 ticks);
         }
 
@@ -494,7 +508,8 @@ namespace Relay.Sim
             List<string> takenIds,
             out Domino[] dominoes,
             out string[] names,
-            out LeanHint[] leans)
+            out LeanHint[] leans,
+            out int[] onSurface)
         {
             JsonValue arr = Array(
                 root,
@@ -507,8 +522,7 @@ namespace Relay.Sim
 
             // Parallel to dominoes: which surface each one stands on, for the overlap
             // check below. Not stored on the def - the domino's base y already says it.
-            var onSurface = new int[arr.Count];
-
+            onSurface = new int[arr.Count];
             for (int i = 0; i < arr.Count; i++)
             {
                 string where = $"fixed[{i}]";
@@ -704,6 +718,274 @@ namespace Relay.Sim
                 $"{where}.lean is \"{lean}\" - it must be \"left\" or \"right\"");
         }
 
+        // ─────────────────────────────────────────────────────────────── gaps
+
+        static void ParseGaps(
+            JsonValue root,
+            Surface[] surfaces,
+            string[] surfaceNames,
+            List<string> takenIds,
+            Domino[] dominoes,
+            string[] dominoNames,
+            int[] dominoSurfaces,
+            out Gap[] gaps,
+            out string[] names)
+        {
+            JsonValue arr = Array(root, "gaps", "machine");
+
+            gaps = new Gap[arr.Count];
+            names = new string[arr.Count];
+
+            for (int i = 0; i < arr.Count; i++)
+            {
+                string where = $"gaps[{i}]";
+                JsonValue g = arr[i];
+
+                if (g.Kind != JsonKind.Object)
+                    throw new MachineFormatException(
+                        $"{where}: expected an object, found {g.Kind}");
+
+                RequireOnly(g, where, "id", "surface", "x0", "x1");
+
+                // Same namespace as the bodies: a placement names its gap, and "do"
+                // both a domino and a gap would make a telemetry line ambiguous.
+                names[i] = TakeId(g, where, takenIds);
+
+                int si = FloorIndex(g, where, surfaces, surfaceNames, "a gap");
+                Surface surf = surfaces[si];
+
+                Fix x0 = Decimal(g, "x0", where);
+                Fix x1 = Decimal(g, "x1", where);
+
+                if (x1.Raw <= x0.Raw)
+                    throw new MachineFormatException(
+                        $"{where}: x1 must be greater than x0");
+
+                if ((x1 - x0).Raw < SimConstants.DominoThickness.Raw)
+                    throw new MachineFormatException(
+                        $"{where} is narrower than one domino, so nothing fits in it");
+
+                if (x0.Raw < surf.MinX.Raw || x1.Raw > surf.MaxX.Raw)
+                    throw new MachineFormatException(
+                        $"{where} runs off the end of \"{surfaceNames[si]}\"");
+
+                for (int k = 0; k < i; k++)
+                {
+                    if (gaps[k].Surface == si &&
+                        x0.Raw < gaps[k].X1.Raw &&
+                        gaps[k].X0.Raw < x1.Raw)
+                    {
+                        throw new MachineFormatException(
+                            $"{where} overlaps gap \"{names[k]}\"");
+                    }
+                }
+
+                // A gap is empty space for the player. A fixed domino inside one would be
+                // an obstacle the placement rules know nothing about.
+                for (int d = 0; d < dominoes.Length; d++)
+                {
+                    if (dominoSurfaces[d] == si && Overlaps(dominoes[d], x0, x1))
+                    {
+                        throw new MachineFormatException(
+                            $"{where} has fixed domino \"{dominoNames[d]}\" standing inside it");
+                    }
+                }
+
+                gaps[i] = new Gap(si, x0, x1);
+            }
+        }
+        // ─────────────────────────────────────────────────────────────── budget
+
+        static int ParseBudget(JsonValue root)
+        {
+            JsonValue b = Object(root, "budget", "machine");
+            RequireOnly(b, "budget", "domino");
+
+            // Absent means none; {} is how a Phase 0 machine says it has nothing to spend.
+            // Not a silent default - a misspelled piece type is an unknown field above.
+            if (!b.TryGet("domino", out JsonValue _))
+                return 0;
+
+            int n = Integer(b, "domino", "budget");
+
+            if (n < 0)
+                throw new MachineFormatException("budget.domino is negative");
+
+            return n;
+        }
+        // ─────────────────────────────────────────────────────────────── target
+
+        static Goal? ParseTarget(
+            JsonValue root,
+            WorldBounds bounds,
+            Surface[] surfaces,
+            string[] surfaceNames,
+            Domino[] dominoes,
+            string[] dominoNames,
+            int[] dominoSurfaces,
+            Gap[] gaps,
+            string[] gapNames)
+        {
+            JsonValue t = root.Get("target", "machine");
+
+            if (t.IsNull)
+                return null;
+
+            if (t.Kind != JsonKind.Object)
+                throw new MachineFormatException(
+                    $"machine.target: expected an object or null, found {t.Kind}");
+
+            const string where = "target";
+
+            RequireOnly(t, where, "type", "surface", "x", "width", "height");
+
+            string type = Text(t, "type", where);
+
+            if (!string.Equals(type, "goal", StringComparison.Ordinal))
+                throw new MachineFormatException(
+                    $"{where}.type is \"{type}\" - Phase 1 only has \"goal\"");
+
+            int si = FloorIndex(t, where, surfaces, surfaceNames, "a goal");
+            Surface surf = surfaces[si];
+
+            Fix x = Decimal(t, "x", where);
+            Fix width = Decimal(t, "width", where);
+            Fix height = Decimal(t, "height", where);
+
+            if (width.Raw <= 0)
+                throw new MachineFormatException(
+                    $"{where}.width must be positive");
+
+            if (height.Raw <= 0)
+                throw new MachineFormatException(
+                    $"{where}.height must be positive");
+
+            var goal = new Goal(si, new Vec2(x, surf.A.Y), width, height);
+
+            if (goal.MinX.Raw < surf.MinX.Raw ||
+                goal.MaxX.Raw > surf.MaxX.Raw)
+            {
+                throw new MachineFormatException(
+                    $"{where} at x = {Show(x)} hangs off the end of \"{surfaceNames[si]}\"");
+            }
+
+            if (!bounds.Contains(new Vec2(x, surf.A.Y + height)))
+                throw new MachineFormatException(
+                    $"{where} reaches outside world.bounds");
+
+            for (int d = 0; d < dominoes.Length; d++)
+            {
+                if (dominoSurfaces[d] == si &&
+                    Overlaps(dominoes[d], goal.MinX, goal.MaxX))
+                {
+                    throw new MachineFormatException(
+                        $"{where} overlaps fixed domino \"{dominoNames[d]}\"");
+                }
+            }
+
+            for (int g = 0; g < gaps.Length; g++)
+            {
+                if (gaps[g].Surface == si &&
+                    goal.MinX.Raw < gaps[g].X1.Raw &&
+                    gaps[g].X0.Raw < goal.MaxX.Raw)
+                {
+                    throw new MachineFormatException(
+                        $"{where} overlaps gap \"{gapNames[g]}\"");
+                }
+            }
+
+            return goal;
+        }
+        // ─────────────────────────────────────────────────────────────── machine as a level
+
+        /// <summary>
+        /// A machine either just runs (Phase 0: no gaps, no budget) or is a level, and a
+        /// level needs its gaps, budget and target to agree. A goal with no gaps is
+        /// allowed: a machine that wins untouched is a useful test.
+        /// </summary>
+        static void CheckPlayable(Gap[] gaps, int dominoBudget, Goal? target)
+        {
+            if (gaps.Length > 0 && dominoBudget == 0)
+                throw new MachineFormatException(
+                    "machine has gaps but budget gives the player nothing to place in them");
+
+            if (dominoBudget > 0 && gaps.Length == 0)
+                throw new MachineFormatException(
+                    "machine.budget gives the player dominoes but there are no gaps to place them in");
+
+            if (gaps.Length > 0 && target == null)
+                throw new MachineFormatException(
+                    "machine has gaps but no target - the player needs something to reach");
+        }
+        /// <summary>
+        /// The first-gap rule (GAME.md, start-up limit): the first two dominoes of a chain
+        /// must be at least StartUpMinSpacing apart, or the trigger cannot start it.
+        /// Machines run left to right, so the first two are the leftmost two on each
+        /// surface. Checked here only when both are fixed and no gap could put a placed
+        /// domino in front of the second; otherwise the placement check judges it.
+        /// </summary>
+        static void CheckStartup(
+            Surface[] surfaces,
+            Domino[] dominoes,
+            string[] dominoNames,
+            int[] dominoSurfaces,
+            Gap[] gaps)
+        {
+            for (int s = 0; s < surfaces.Length; s++)
+            {
+                // Leftmost two, by a linear scan in file order. The overlap check has
+                // already ruled out two dominoes at the same x.
+                int first = -1, second = -1;
+
+                for (int d = 0; d < dominoes.Length; d++)
+                {
+                    if (dominoSurfaces[d] != s)
+                        continue;
+
+                    long x = dominoes[d].Base.X.Raw;
+
+                    if (first < 0 || x < dominoes[first].Base.X.Raw)
+                    {
+                        second = first;
+                        first = d;
+                    }
+                    else if (second < 0 || x < dominoes[second].Base.X.Raw)
+                    {
+                        second = d;
+                    }
+                }
+
+                if (second < 0)
+                    continue;
+
+                bool placedCouldLead = false;
+
+                for (int g = 0; g < gaps.Length; g++)
+                {
+                    if (gaps[g].Surface == s &&
+                        gaps[g].X0.Raw < dominoes[second].Base.X.Raw)
+                    {
+                        placedCouldLead = true;
+                        break;
+                    }
+                }
+
+                if (placedCouldLead)
+                    continue;
+
+                Fix spacing = dominoes[second].Base.X - dominoes[first].Base.X;
+
+                if (spacing.Raw < SimConstants.StartUpMinSpacing.Raw)
+                {
+                    throw new MachineFormatException(
+                        $"fixed dominoes \"{dominoNames[first]}\" and \"{dominoNames[second]}\" " +
+                        $"start a chain only {Show(spacing)} apart - below " +
+                        $"{Show(SimConstants.StartUpMinSpacing)} - " +
+                        "cannot start it");
+                }
+            }
+        }
+
         // ------------------------------------------------------------------
         // Sim
 
@@ -782,7 +1064,7 @@ namespace Relay.Sim
                     StringComparison.Ordinal))
                 {
                     throw new MachineFormatException(
-                        $"{where}.id \"{id}\" is already used by another body");
+                        $"{where}.id \"{id}\" is already used by another body or gap");
                 }
             }
 
@@ -826,58 +1108,43 @@ namespace Relay.Sim
             }
         }
 
-        static void RequireEmptyArray(
-            JsonValue root,
-            string name,
+        /// <summary>
+        /// The horizontal surface a gap or goal names. Linear scan in file order, like
+        /// the dominoes' lookup, so a name maps to the same index everywhere.
+        /// </summary>
+        static int FloorIndex(
+            JsonValue o,
             string where,
-            string why)
+            Surface[] surfaces,
+            string[] surfaceNames,
+            string what)
         {
-            JsonValue v = Array(
-                root,
-                name,
-                where);
+            string name = Text(o, "surface", where);
 
-            if (v.Count != 0)
+            for (int k = 0; k < surfaceNames.Length; k++)
             {
-                throw new MachineFormatException(
-                    $"{where}.{name} must be empty: {why}");
+                if (string.Equals(surfaceNames[k], name, StringComparison.Ordinal))
+                {
+                    if (!surfaces[k].IsHorizontal)
+                    {
+                        throw new MachineFormatException(
+                            $"{where} is on \"{name}\", which is vertical - {what} needs a floor");
+                    }
+
+                    return k;
+                }
             }
+
+            throw new MachineFormatException(
+                $"{where}.surface is \"{name}\", which is not a surface in this machine");
         }
 
-        static void RequireEmptyObject(
-            JsonValue root,
-            string name,
-            string where,
-            string why)
-        {
-            JsonValue v = Object(
-                root,
-                name,
-                where);
-
-            if (v.Count != 0)
-            {
-                throw new MachineFormatException(
-                    $"{where}.{name} must be empty: {why}");
-            }
-        }
-
-        static void RequireNull(
-            JsonValue root,
-            string name,
-            string where,
-            string why)
-        {
-            JsonValue v = root.Get(
-                name,
-                where);
-
-            if (!v.IsNull)
-            {
-                throw new MachineFormatException(
-                    $"{where}.{name} must be null: {why}");
-            }
-        }
+        /// <summary>
+        /// Whether a standing domino's footprint overlaps the open interval (x0, x1).
+        /// </summary>
+        static bool Overlaps(Domino d, Fix x0, Fix x1)
+            => (d.Base.X - d.HalfThickness).Raw < x1.Raw &&
+            (d.Base.X + d.HalfThickness).Raw > x0.Raw;
 
         // Typed accessors. Each one names the full field path in its error, so a bad
         // machine tells you where to look instead of just that it was bad.
@@ -974,7 +1241,8 @@ namespace Relay.Sim
                 raw = -raw;
 
             long whole = raw >> 32;
-            long milli = ((raw & 0xFFFFFFFFL) * 1000) >> 32;
+            long milli = (((raw & 0xFFFFFFFFL) * 1000) + (1L << 31)) >> 32;
+            if (milli == 1000) { whole++; milli = 0; }
 
             return (negative ? "-" : "") +
                    whole.ToString() +
