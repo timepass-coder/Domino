@@ -776,7 +776,7 @@ namespace Relay.Sim
                         gaps[k].X0.Raw < x1.Raw)
                     {
                         throw new MachineFormatException(
-                            $"{where} overlaps gap[{k}] \"{names[k]}\"");
+                            $"{where} overlaps gaps[{k}] \"{names[k]}\"");
                     }
                 }
 
@@ -890,7 +890,7 @@ namespace Relay.Sim
                     gaps[g].X0.Raw < goal.MaxX.Raw)
                 {
                     throw new MachineFormatException(
-                        $"{where} overlaps gap[{g}] \"{gapNames[g]}\"");
+                        $"{where} overlaps gaps[{g}] \"{gapNames[g]}\"");
                 }
             }
 
