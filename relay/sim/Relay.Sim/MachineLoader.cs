@@ -163,7 +163,7 @@ namespace Relay.Sim
                 gapNames);
 
             CheckPlayable(gaps, dominoBudget, target);
-            CheckStartup(surfaces, dominoes, dominoNames, dominoSurfaces, gaps);
+            CheckStartUp(surfaces, dominoes, dominoNames, dominoSurfaces, gaps);
 
             int ticks = ParseSim(root);
 
@@ -776,7 +776,7 @@ namespace Relay.Sim
                         gaps[k].X0.Raw < x1.Raw)
                     {
                         throw new MachineFormatException(
-                            $"{where} overlaps gap \"{names[k]}\"");
+                            $"{where} overlaps gap[{k}] \"{names[k]}\"");
                     }
                 }
 
@@ -890,7 +890,7 @@ namespace Relay.Sim
                     gaps[g].X0.Raw < goal.MaxX.Raw)
                 {
                     throw new MachineFormatException(
-                        $"{where} overlaps gap \"{gapNames[g]}\"");
+                        $"{where} overlaps gap[{g}] \"{gapNames[g]}\"");
                 }
             }
 
@@ -924,7 +924,7 @@ namespace Relay.Sim
         /// surface. Checked here only when both are fixed and no gap could put a placed
         /// domino in front of the second; otherwise the placement check judges it.
         /// </summary>
-        static void CheckStartup(
+        static void CheckStartUp(
             Surface[] surfaces,
             Domino[] dominoes,
             string[] dominoNames,

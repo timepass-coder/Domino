@@ -99,9 +99,9 @@ public class MachineLoaderLevelTests
         // Step 1 is format only. The sim sees none of it until placements (Step 2) and
         // the goal test (Step 4) arrive, so the armed hash must not move.
         string bare = Swap(G0, "");
-        bare = bare.Replace(@"""domino"": 3,", "");
+        bare = bare.Replace(@"""domino"": 3", "");
         bare = bare.Replace(
-            @"{ ""type"": ""goal"", ""surface"": ""shelf"", ""x"": 9.0, ""width"": 0.4, ""height"": 0.6 },",
+            @"{ ""type"": ""goal"", ""surface"": ""shelf"", ""x"": 9.0, ""width"": 0.4, ""height"": 0.6 }",
             "null");
 
         MachineDef plain = P(bare);
@@ -115,7 +115,7 @@ public class MachineLoaderLevelTests
     [InlineData("m000_roll_and_fall")]
     [InlineData("m001_single_topple")]
     [InlineData("m002_chain")]
-    public void ThePhase1FixturesHaveNothingToPlaceAndNoTarget(string id)
+    public void ThePhase0FixturesHaveNothingToPlaceAndNoTarget(string id)
     {
         MachineDef m = MachineLoader.LoadFile(
             Path.Combine(MachineLoaderTests.MachinesDir(), id + ".json"));
@@ -181,7 +181,7 @@ public class MachineLoaderLevelTests
     public void ATargetThatIsNotAnObjectIsRejected()
     {
         string text = Swap(
-            @"{ ""type"": ""goal"", ""surface"": ""shelf"", ""x"": 9.0, ""width"": 0.4, ""height"": 0.6 },",
+            @"{ ""type"": ""goal"", ""surface"": ""shelf"", ""x"": 9.0, ""width"": 0.4, ""height"": 0.6 }",
             "3");
 
         Assert.Contains("expected an object or null, found Number", Reject(text));
@@ -197,7 +197,7 @@ public class MachineLoaderLevelTests
     public void OverlappingGapsAreRejected()
     {
         string text = Swap(
-            G0 + ",",
+            G0 ,
             G0 + @", { ""id"": ""g1"", ""surface"": ""shelf"", ""x0"": 7.0, ""x1"": 8.0 }");
 
         Assert.Contains(
@@ -209,7 +209,7 @@ public class MachineLoaderLevelTests
     public void GapsThatOnlyTouchAreAllowed()
     {
         string text = Swap(
-            G0 + ",",
+            G0 ,
             G0 + @", { ""id"": ""g1"", ""surface"": ""shelf"", ""x0"": 7.6, ""x1"": 8.0 }");
 
         Assert.Equal(2, P(text).Gaps.Length);
@@ -235,7 +235,7 @@ public class MachineLoaderLevelTests
     public void GapsWithoutAGoalAreRejected()
     {
         string text = Swap(
-            @"{ ""type"": ""goal"", ""surface"": ""shelf"", ""x"": 9.0, ""width"": 0.4, ""height"": 0.6 },",
+            @"{ ""type"": ""goal"", ""surface"": ""shelf"", ""x"": 9.0, ""width"": 0.4, ""height"": 0.6 }",
             "null");
 
         Assert.Contains("gaps but no target", Reject(text));
